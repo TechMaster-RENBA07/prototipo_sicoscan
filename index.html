@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SICO App - Prototipo Funcional</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+    <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="app-wrapper">
+        <section id="screen-login" class="screen-full">
+            <div class="login-card">
+                <div class="user-icon">👤</div>
+                <h2>Acceso al Sistema</h2>
+                <input type="text" id="user" placeholder="Usuario">
+                <input type="password" id="pass" placeholder="Contraseña">
+                <button class="btn-primary" onclick="handleLogin()">INGRESAR</button>
+            </div>
+        </section>
+
+        <section id="app-main" class="app-layout" style="display:none;">
+            <aside id="main-sidebar" class="sidebar">
+                <div class="sidebar-header">
+                    <div class="avatar">👤</div>
+                    <span>PANEL DE CONTROL</span>
+                </div>
+                <nav class="nav-menu">
+                    <!-- Botón para volver al Dashboard principal -->
+                    <button onclick="goToDashboard()" class="nav-btn-home" style="background: rgba(255,255,255,0.1); margin-bottom: 20px;">
+                        🏠 INICIO / DASHBOARD
+                    </button>
+                    <hr style="opacity: 0.2; margin-bottom: 20px;">
+
+                    <button onclick="showConsultarStockView(); closeSidebarMobile();" class="nav-btn active">
+                        🔍 CONSULTAR STOCK
+                    </button>
+                    <button onclick="showInventoryInit(); closeSidebarMobile();" class="nav-btn">
+                        📦 ACTUALIZAR INVENTARIO
+                    </button>
+                    <button onclick="openModule('ajuste'); closeSidebarMobile();" class="nav-btn">
+                        ⚖️ AJUSTE ALMACÉN
+                    </button>
+                    <button onclick="openModule('movimiento'); closeSidebarMobile();" class="nav-btn">
+                        🔄 MOVIMIENTO ALMACÉN
+                    </button>
+                </nav>
+                <button class="btn-logout-sidebar" onclick="logout()">Cerrar Sesión</button>
+            </aside>
+
+            <main class="main-content">
+                <header class="main-header">
+                    <button class="btn-toggle-menu" onclick="toggleSidebar()">☰</button>
+                    
+                    <!-- Nueva estructura: Solo Sucursal y Usuario -->
+                    <div class="header-right-group">
+                        <div class="logo-box-right" onclick="openBranchModal()">
+                            <span id="current-branch-name">TARAPOTO</span> | <span id="user-display-name">ABNER</span>
+                        </div>
+                    </div>
+                </header>
+
+                <div id="dynamic-view-container">
+                    <div id="view-dashboard" class="card-view">
+                        <h2 class="view-title">Bienvenido al Sistema</h2>
+                        <p class="instruction">Seleccione un módulo para comenzar:</p>
+                        
+                        <div class="dashboard-grid">
+                            <!-- Tarjeta Consultar Stock -->
+                            <div class="dash-card cyan" onclick="openModule('stock')">
+                                <span class="dash-icon">🔍</span>
+                                <h3>CONSULTAR STOCK</h3>
+                                <p>Verifique disponibilidad y precios en tiempo real.</p>
+                            </div>
+
+                            <!-- Tarjeta Actualizar Inventario -->
+                            <div class="dash-card navy" onclick="openModule('inventario')">
+                                <span class="dash-icon">📦</span>
+                                <h3>ACTUALIZAR INVENTARIO</h3>
+                                <p>Realice tomas de inventario físico y ajustes.</p>
+                            </div>
+
+                            <div class="dash-card purple dash-card-ajuste" onclick="openModule('ajuste')">
+                                <span class="dash-icon">🧾</span>
+                                <h3>AJUSTE DE ALMACÉN</h3>
+                                <p>Revise y actualice las cantidades reales por producto.</p>
+                            </div>
+
+                            <div class="dash-card orange" onclick="openModule('movimiento')">
+                                <span class="dash-icon">🔄</span>
+                                <h3>MOVIMIENTO ALMACÉN</h3>
+                                <p>Registre entradas, salidas y transferencias de stock.</p>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div id="view-ajuste-almacen" class="card-view ajuste-view" style="display:none;">
+                        <div class="ajuste-tab-bar">
+                            <button class="ajuste-tab-home" onclick="goToDashboard()">Home</button>
+                            <strong>Ajuste de almacén</strong>
+                            <button class="ajuste-tab-close" onclick="goToDashboard()" title="Cerrar vista">×</button>
+                        </div>
+                        <div class="ajuste-toolbar">
+                            <div class="ajuste-periodo-nav">
+                                <button class="btn-nav-inv" onclick="goToDashboard()">← Anterior</button>
+                                <strong>Inventario: <span>8 - 2026</span></strong>
+                                <button class="btn-nav-inv" onclick="cambiarPeriodoAjuste(1)">Siguiente →</button>
+                            </div>
+                            <div class="ajuste-actions">
+                                <button class="btn-save-data" onclick="guardarDatosAjuste()">✓ Guardar datos</button>
+                                <button class="btn-export" onclick="exportarAjuste('pdf')">↗ Generar PDF</button>
+                                <button class="btn-export" onclick="exportarAjuste('excel')">⇩ Generar Excel</button>
+                            </div>
+                        </div>
+
+                        <div class="ajuste-workspace">
+                            <aside class="ajuste-filters">
+                                <label>Almacén</label>
+                                <select id="ajuste-almacen" class="ajuste-control">
+                                    <option value="VENTAS">VENTAS</option>
+                                    <option value="PRINCIPAL">PRINCIPAL</option>
+                                </select>
+
+                                <label>Buscar productos</label>
+                                <input id="ajuste-descripcion" class="ajuste-control" type="search" placeholder="⌕  Buscar por descripción" oninput="buscarProductoAjuste()">
+                                <input id="ajuste-codigo" class="ajuste-control" type="search" placeholder="▨  Buscar por código de barras" oninput="buscarProductoAjuste()">
+                                <input id="ajuste-id" class="ajuste-control" type="search" placeholder="◉  Buscar por ID de producto" oninput="buscarProductoAjuste()">
+
+                                <label>Línea</label>
+                                <select id="ajuste-linea" class="ajuste-control" onchange="buscarProductoAjuste()">
+                                    <option value="TODOS">TODOS</option>
+                                </select>
+                                <label>Categoría</label>
+                                <select id="ajuste-categoria" class="ajuste-control" onchange="buscarProductoAjuste()">
+                                    <option value="TODOS">TODOS</option>
+                                </select>
+                                <label>Marca</label>
+                                <select id="ajuste-marca" class="ajuste-control" onchange="buscarProductoAjuste()">
+                                    <option value="TODOS">TODOS</option>
+                                </select>
+                                <button class="ajuste-filter-button" onclick="buscarProductoAjuste()">Buscar</button>
+                            </aside>
+
+                            <section class="ajuste-table-panel">
+                                <div class="ajuste-table-controls">
+                                    <div>Ver <select id="ajuste-page-size" onchange="cambiarTamanoAjuste()"><option>10</option><option>5</option></select> registros</div>
+                                    <input id="ajuste-busqueda" type="search" placeholder="⌕  Buscar en esta tabla" oninput="buscarProductoAjuste()">
+                                </div>
+                                <div id="ajuste-lista" class="ajuste-list-container">
+                                    <table class="ajuste-table">
+                                        <thead><tr><th>Id</th><th>Descripción</th><th>C. Barra</th><th>U. Medida</th><th>P. Venta</th><th>Stock</th><th>Cant. Real</th></tr></thead>
+                                        <tbody id="ajuste-table-body"></tbody>
+                                    </table>
+                                </div>
+                                <div class="ajuste-table-footer">
+                                    <div id="ajuste-paginacion" class="ajuste-pagination"></div>
+                                    <span id="ajuste-registros">0 registros</span>
+                                </div>
+                            </section>
+                        </div>
+
+                        <div class="ajuste-mobile-layout new-mobile-design">
+                            <!-- Cabecera Turquesa -->
+                            <div class="m-header">
+                                <h2>Ajuste de almacén</h2>
+                                <button class="m-refresh" onclick="limpiarListaAjustes()">↻</button>
+                            </div>
+
+                            <!-- Navegación de Inventario -->
+                            <div class="m-nav-inv">
+                                <button class="btn-nav-light" onclick="cambiarPeriodoAjuste(-1)">← Anterior</button>
+                                <div class="m-inv-badge">Inventario: <span id="lbl-inventario-mobile">8 - 2026</span></div>
+                                <button class="btn-nav-light" onclick="cambiarPeriodoAjuste(1)">Siguiente →</button>
+                            </div>
+
+                            <div class="m-body-content">
+                                <!-- Filtros -->
+                                <div class="m-filter-group">
+                                    <label>Almacén</label>
+                                    <select id="ajuste-almacen-mobile" class="m-select" onchange="buscarProductoAjuste()">
+                                        <option value="VENTAS">VENTAS</option>
+                                    </select>
+                                </div>
+
+                                <div class="m-filter-group">
+                                    <div class="m-search-wrapper">
+                                        <span class="m-icon">🔍</span>
+                                        <input type="search" id="ajuste-busqueda-mobile" class="m-input" placeholder="Buscar producto o código" oninput="buscarProductoAjuste()">
+                                    </div>
+                                </div>
+
+                                <!-- Grilla de 3 columnas para Línea, Categoría y Marca -->
+                                <div class="m-filters-grid">
+                                    <div class="m-col">
+                                        <label>Línea</label>
+                                        <select id="ajuste-linea-mobile" class="m-select" onchange="buscarProductoAjuste()"><option value="TODOS">TODOS</option></select>
+                                    </div>
+                                    <div class="m-col">
+                                        <label>Categoría</label>
+                                        <select id="ajuste-categoria-mobile" class="m-select" onchange="buscarProductoAjuste()"><option value="TODOS">TODOS</option></select>
+                                    </div>
+                                    <div class="m-col">
+                                        <label>Marca</label>
+                                        <select id="ajuste-marca-mobile" class="m-select" onchange="buscarProductoAjuste()"><option value="TODOS">TODOS</option></select>
+                                    </div>
+                                </div>
+
+                                <!-- Controles y Botón Flotante de Reporte -->
+                                <div class="m-controls-row">
+                                    <div class="m-show-records">
+                                        Mostrar: 
+                                        <select id="m-page-size" class="m-select-small" onchange="cambiarTamanoAjuste()">
+                                            <option>10</option>
+                                            <option>20</option>
+                                        </select> 
+                                        registros
+                                    </div>
+                                    
+                                    <div class="report-wrapper">
+                                        <button class="btn-reporte" onclick="toggleReportMenu(event)">📄 Reporte ↗</button>
+                                        <!-- Menú Flotante -->
+                                        <div id="report-floating-menu" class="floating-menu">
+                                            <button class="btn-float-pdf" onclick="exportarAjuste('pdf')"><span>📄</span> Generar PDF</button>
+                                            <button class="btn-float-excel" onclick="exportarAjuste('excel')"><span>📊</span> Generar Excel</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tabla Scrolleable -->
+                                <div class="m-table-container">
+                                    <table class="m-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Id</th>
+                                                <th>Descripción</th>
+                                                <th>U. Medida</th>
+                                                <th>Stock</th>
+                                                <th>Cant. Real</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ajuste-mobile-lista">
+                                            <!-- JS inyectará las filas aquí -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Paginación -->
+                                <div class="m-pagination-row">
+                                    <div id="ajuste-mobile-paginacion" class="m-pagination-buttons">
+                                        <!-- Botones inyectados por JS -->
+                                    </div>
+                                    <div class="m-totals" id="ajuste-mobile-registros">
+                                        0 registros
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Botón Fijo Inferior -->
+                            <div class="m-bottom-bar">
+                                <button class="btn-guardar-fixed" onclick="guardarDatosAjuste()">Guardar datos</button>
+                            </div>
+                        </div>
+                    </div>
+
+
+                            <!-- VISTA: MOVIMIENTO DE ALMACÉN -->
+        <div id="view-movimiento-almacen" class="card-view" style="display:none;">
+            <div class="new-mobile-design mov-mobile-design">
+                <!-- Cabecera Turquesa -->
+                <div class="m-header">
+                    <h2>Movimiento de almacén</h2>
+                    <button class="m-refresh" onclick="limpiarFormularioMovimiento()">↻</button>
+                </div>
+
+                <!-- Pestañas -->
+                <div class="m-tabs">
+                    <button id="tab-mov-form" class="m-tab active" onclick="cambiarTabMovimiento('form')">Registrar</button>
+                    <button id="tab-mov-historial" class="m-tab" onclick="cambiarTabMovimiento('historial')">Historial</button>
+                </div>
+
+                <!-- PESTAÑA 1: REGISTRAR MOVIMIENTO -->
+                <div id="mov-tab-form" class="m-body-content">
+                    
+                    <!-- Formulario Cabecera -->
+                    <div class="mov-form-grid">
+                        <div class="m-filter-group">
+                            <label>Almacén</label>
+                            <select id="mov-almacen" class="m-select">
+                                <option value="VENTAS">VENTAS</option>
+                                <option value="PRINCIPAL">PRINCIPAL</option>
+                            </select>
+                        </div>
+                        <div class="m-filter-group">
+                            <label>Tipo Documento</label>
+                            <div style="display: flex; gap: 5px;">
+                                <select id="mov-tipo-doc" class="m-select" style="flex: 2;">
+                                    <option value="NOTA DE ALMACEN">NOTA DE ALMACEN</option>
+                                    <option value="GUIA DE REMISION">GUIA DE REMISION</option>
+                                </select>
+                                <input type="text" id="mov-serie" class="m-input" placeholder="Serie" style="flex: 1;" value="0001">
+                                <input type="text" id="mov-numero" class="m-input" placeholder="Nro" style="flex: 1;" value="2">
+                            </div>
+                        </div>
+                        <div class="m-filter-group">
+                            <label>Tipo Movimiento <span style="color: red;">*</span></label>
+                            <select id="mov-tipo-mov" class="m-select">
+                                <option value="ENTRADA">ENTRADA</option>
+                                <option value="SALIDA">SALIDA</option>
+                            </select>
+                        </div>
+                        <div class="m-filter-group">
+                            <label>Tipo Operación <span style="color: red;">*</span></label>
+                            <select id="mov-tipo-op" class="m-select">
+                                <option value="VENTA">VENTA</option>
+                                <option value="COMPRA">COMPRA</option>
+                                <option value="CONSIGNACION RECIBIDA">CONSIGNACION RECIBIDA</option>
+                                <option value="CONSIGNACION ENTREGADA">CONSIGNACION ENTREGADA</option>
+                                <option value="DEVOLUCION RECIBIDA">DEVOLUCION RECIBIDA</option>
+                                <option value="DEVOLUCION ENTREGADA">DEVOLUCION ENTREGADA</option>
+                                <option value="PROMOCION">PROMOCION</option>
+                                <option value="PREMIO">PREMIO</option>
+                                <option value="DONACION">DONACION</option>
+                                <option value="SALIDA A PRODUCCION">SALIDA A PRODUCCION</option>
+                                <option value="TRANSFERENCIA ENTRE ALMACENES">TRANSFERENCIA ENTRE ALMACENES</option>
+                                <option value="RETIRO">RETIRO</option>
+                                <option value="MERMAS">MERMAS</option>
+                                <option value="DESMEDROS">DESMEDROS</option>
+                                <option value="DESTRUCCION">DESTRUCCION</option>
+                                <option value="SALDO INICIAL">SALDO INICIAL</option>
+                                <option value="AJUSTE POR DIFERENCIA DE INVENTARIO">AJUSTE POR DIFERENCIA DE INVENTARIO</option>
+                                <option value="OTROS">OTROS</option>
+                            </select>
+                        </div>
+                        <div class="m-filter-group">
+                            <label>Documento Referencia</label>
+                            <div style="display: flex; gap: 5px;">
+                                <input type="text" id="mov-ref-serie" class="m-input" placeholder="Serie" style="flex: 1;">
+                                <input type="text" id="mov-ref-num" class="m-input" placeholder="Número" style="flex: 2;">
+                            </div>
+                        </div>
+                        <div class="m-filter-group">
+                            <label>Solicita / Recoge</label>
+                            <input type="text" id="mov-solicitante" class="m-input" placeholder="Cliente / Personal" value="*****">
+                        </div>
+                        <div class="m-filter-group" style="grid-column: span 2;">
+                            <label>Observaciones</label>
+                            <input type="text" id="mov-observaciones" class="m-input" placeholder="Observaciones adicionales...">
+                        </div>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px dashed #ccc; margin: 15px 0;">
+
+                    <!-- Búsqueda y Adición de Productos -->
+                    <div class="m-filter-group">
+                        <label>Lista de Productos</label>
+                        <div class="m-search-wrapper">
+                            <span class="m-icon">🔍</span>
+                            <input type="search" id="mov-buscar-producto" class="m-input" placeholder="Buscar producto o código" oninput="buscarProductoMovimiento()">
+                        </div>
+                        <div id="mov-resultados-busqueda" class="mov-search-results" style="display: none;"></div>
+                    </div>
+
+                    <!-- Tabla de Productos Agregados -->
+                    <div class="m-table-container">
+                        <table class="m-table mov-products-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Producto</th>
+                                    <th>Stock</th>
+                                    <th>U.M.</th>
+                                    <th>Cantidad</th>
+                                    <th>Estado</th>
+                                    <th>P.Compra</th>
+                                    <th>P.Venta</th>
+                                    <th>Total(costo)</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="mov-tabla-body">
+                                <!-- JS inyectará las filas aquí -->
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="8" style="text-align: right; font-weight: bold;">TOTAL(COSTO)</td>
+                                    <td id="mov-total-costo" style="font-weight: bold;">0.00</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- Botón Fijo Inferior -->
+                    <div class="m-bottom-bar">
+                        <button class="btn-guardar-fixed" onclick="guardarMovimiento()">Guardar Movimiento</button>
+                    </div>
+                </div>
+
+                <!-- PESTAÑA 2: HISTORIAL -->
+                <div id="mov-tab-historial" class="m-body-content" style="display:none;">
+                    <div class="m-filter-group">
+                        <label>Filtrar por fecha</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="date" id="mov-fecha-desde" class="m-input" onchange="renderHistorialMovimiento()">
+                            <span style="align-self: center;">-</span>
+                            <input type="date" id="mov-fecha-hasta" class="m-input" onchange="renderHistorialMovimiento()">
+                        </div>
+                    </div>
+                    <div class="m-filter-group">
+                        <label>Tipo Movimiento</label>
+                        <select id="mov-filtro-tipo" class="m-select" onchange="renderHistorialMovimiento()">
+                            <option value="TODOS">TODOS</option>
+                            <option value="ENTRADA">ENTRADA</option>
+                            <option value="SALIDA">SALIDA</option>
+                        </select>
+                    </div>
+                    <div class="m-controls-row">
+                        <div class="m-show-records">
+                            Mostrar: 
+                            <select id="mov-hist-page-size" class="m-select-small" onchange="renderHistorialMovimiento()">
+                                <option>10</option>
+                                <option>20</option>
+                            </select> registros
+                        </div>
+                        <div class="report-wrapper">
+                            <button class="btn-reporte" onclick="toggleReportMenuMovimiento(event)">📄 Reporte ↗</button>
+                            <div id="report-floating-menu-mov" class="floating-menu">
+                                <button class="btn-float-pdf" onclick="exportarMovimiento('pdf')"><span>📄</span> Generar PDF</button>
+                                <button class="btn-float-excel" onclick="exportarMovimiento('excel')"><span>📊</span> Generar Excel</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="m-table-container">
+                        <table class="m-table mov-history-table">
+                            <thead>
+                                <tr>
+                                    <th>Id</th>
+                                    <th>Documento</th>
+                                    <th>F.Registro</th>
+                                    <th>Tipo</th>
+                                    <th>Operación</th>
+                                    <th>Doc. Ref.</th>
+                                    <th>Observaciones</th>
+                                    <th>Responsable</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mov-historial-body">
+                                <!-- JS inyectará las filas aquí -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+                <!-- VISTA: CONSULTAR STOCK (Cámara + Manual siempre visibles) -->
+                <div id="view-scan-init" class="card-view">
+                    <h2 class="view-title">CONSULTAR STOCK</h2>
+                    
+                    <!-- Visor de cámara (Se activa automáticamente al entrar) -->
+                    <div id="camera-auto-container" style="margin-bottom: 20px;">
+                        <div id="reader-auto" style="width: 100%; border-radius: 12px; overflow: hidden; background: #000;"></div>
+                    </div>
+
+                    <!-- Sección Manual Directa -->
+                    <div id="manual-direct-container" style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 15px;">
+                        <label class="label-tiny">INGRESE CÓDIGO MANUALMENTE:</label>
+                        <input type="text" id="manual-code" class="input-text-styled" placeholder="Ej: 1010">
+                        <button class="btn-action-cyan" style="margin-top: 10px;" onclick="mockSearch()">BUSCAR PRODUCTO</button>
+                    </div>
+                </div>
+
+                    <div id="view-camera-active" class="card-view" style="display:none;">
+                        <h2 class="view-title">ESCANEANDO...</h2>
+                        <div id="reader"></div>
+                        <button class="btn-danger" onclick="stopCamera()">CANCELAR</button>
+                    </div>
+
+        <div id="view-results" class="card-view result-card" style="display:none;">
+            <div class="badge-success">Producto Encontrado</div>
+            
+            <!-- NUEVO: Contenedor de Imagen -->
+            <div class="product-image-container">
+                <img id="res-image" src="assets/no-image.png" alt="Imagen del producto">
+                <div id="no-image-text" class="no-image-placeholder" style="display:none;">
+                    <span>🖼️</span>
+                    <p>Sin imagen</p>
+                </div>
+            </div>
+
+            <h3 id="res-name" class="product-name">Nombre del Producto</h3>
+            
+            <div class="result-grid">
+                <div class="res-item">
+                    <label>CÓDIGO:</label>
+                    <span id="res-code">0000</span>
+                </div>
+                <div class="res-item">
+                    <label>STOCK:</label>
+                    <span id="res-stock">0 unidades</span>
+                </div>
+            </div>
+            
+            <div class="price-container">
+                <label>PRECIO:</label>
+                <div class="price-value">S/ <span id="res-price">0.00</span></div>
+            </div>
+            
+            <button class="btn-action-primary" onclick="showConsultarStockView()">NUEVA CONSULTA</button>
+        </div>
+
+                    <div id="step-1-creacion" class="card-view" style="display:block;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <div class="step-indicator" style="margin-bottom: 0;">Paso 1 de 3</div>
+                            <button class="btn-history-icon" onclick="showInventoryHistory()" title="Ver Historial">📜 Historial</button>
+                        </div>
+                        <h2 class="view-title">🔵 Fase de Creación</h2>
+                        <div class="inventory-setup">
+                            <!-- <div class="input-group-spaced">
+                                <label class="label-bold">SELECCIONE SUCURSAL:</label>
+                                <select id="inv-sucursal" class="input-text-styled">
+                                    <option value="Sede Tarapoto">Sede Tarapoto</option>
+                                    <option value="Sede Lima">Sede Lima</option>
+                                </select>
+                            </div> -->
+                            <div class="input-group-spaced">
+                                <label class="label-bold">SELECCIONE ALMACÉN:</label>
+                                <select id="inv-almacen" class="input-text-styled">
+                                    <option value="Almacén Principal">Almacén Principal</option>
+                                    <option value="Vitrina / Exhibición">Vitrina / Exhibición</option>
+                                </select>
+                            </div>
+                            <p class="p-tiny">Se validará si existe una toma abierta y se creará el snapshot de stock.</p>
+                            <button class="btn-action-primary" onclick="pasarAConteo()">CREAR TOMA Y EMPEZAR</button>
+                        </div>
+                    </div>
+
+                        <div id="step-2-conteo" class="card-view" style="display:none;">
+                            <div class="step-indicator">Paso 2 de 3</div>
+                            <h2 class="view-title">🟠 Fase de Conteo</h2>
+
+                            <!-- Contenedor de cámara siempre listo en esta fase -->
+                            <div id="inventory-camera-container" style="margin-top: 20px;">
+                                <div id="reader-inventory" style="width: 100%; border-radius: 12px; overflow: hidden;"></div>
+                            </div>
+                            
+                            <div id="inventory-manual-section">
+                                <div class="separator"><span>O INGRESO MANUAL</span></div>
+                                <input type="text" id="inv-manual-code" class="input-text-styled" placeholder="Código de barras">
+                                
+                                <!-- Tu botón de guardar que ahora abre el modal de lote -->
+                                <button class="btn-action-cyan" onclick="manualInventoryEntry()">GUARDAR</button>
+                                
+                                <hr class="spacer">
+                                <button class="btn-secondary-outline" onclick="pasarACierre()">FINALIZAR CONTEO</button>
+                            </div>
+                        </div>
+
+                    <div id="step-3-cierre" class="card-view" style="display:none;">
+                        <div class="step-indicator">Paso 3 de 3</div>
+                        <h2 class="view-title">🔴 Fase de Cierre</h2>
+                        <div class="summary-box">
+                            <p><strong>Estado:</strong> Pendiente de Validación</p>
+                            <p>Se calcularán las diferencias entre el stock real y el sistema.</p>
+                        </div>
+                        <button class="btn-action-primary" onclick="generarReporte()">CALCULAR DIFERENCIAS Y CERRAR</button>
+                        <button class="btn-link" onclick="volverAConteo()">SEGUIR CONTANDO</button>
+                    </div>
+
+                    <!-- Nueva vista: Historial de Tomas de Inventario -->
+                    <div id="view-inventory-history" class="card-view" style="display:none; max-width: 900px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h2 class="view-title" style="margin-bottom: 0;">📋 Historial de Tomas</h2>
+                            <button class="btn-secondary-outline" style="width: auto; padding: 5px 15px;" onclick="showView('step-1-creacion')">Volver</button>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="sico-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nro.</th>
+                                        <th>Fecha apertura</th>
+                                        <th>Fecha cierre</th>
+                                        <th>Responsable</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>1</td>
+                                        <td>04/01/2022 20:48</td>
+                                        <td>12/08/2023 09:31</td>
+                                        <td>SOPORTE L</td>
+                                        <td><span class="badge-closed">Cerrado</span></td>
+                                    </tr>
+                                    <tr class="row-selected">
+                                        <td>2</td>
+                                        <td>12/08/2023 09:32</td>
+                                        <td>28/04/2026 09:56</td>
+                                        <td>SOPORTE L</td>
+                                        <td><span class="badge-closed">Cerrado</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>3</td>
+                                        <td>28/04/2026 09:57</td>
+                                        <td>-</td>
+                                        <td>SOPORTE L</td>
+                                        <td><span class="badge-open">Abierto</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="table-footer">
+                            1 a 3 de 3 registros
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </section>
+    </div>
+
+<!-- Modal de Selección de Sucursal (RF02) Actualizado -->
+<div id="modal-branch" class="modal-overlay" style="display:none;">
+    <div class="modal-card">
+        <h3>Seleccionar Sucursal</h3>
+        <div class="branch-accordion">
+            
+            <!-- Empresa General 1 -->
+            <div class="company-group">
+                <button class="company-header" onclick="toggleBranchList('group-pasamane')">
+                    🏢 PASAMANE E IMPORTADORA TARAPOTO S.A.C <span class="arrow">▼</span>
+                </button>
+                <div id="group-pasamane" class="branch-sub-list" style="display:none;">
+                    <button class="branch-item-sub" onclick="selectBranch('TARAPOTO')">🏠 Sucursal Tarapoto</button>
+                    <button class="branch-item-sub" onclick="selectBranch('MORALES')">🏠 Sucursal Morales</button>
+                </div>
+            </div>
+
+            <!-- Empresa General 2
+            <div class="company-group">
+                <button class="company-header" onclick="toggleBranchList('group-vidriera')">
+                    🏢 VIDRIERA DEL ORIENTE <span class="arrow">▼</span>
+                </button>
+                <div id="group-vidriera" class="branch-sub-list" style="display:none;">
+                    <button class="branch-item-sub" onclick="selectBranch('VIDRIERA')">🏠 Sede Central</button>
+                </div>
+            </div> -->
+
+        </div>
+        <button class="btn-link" onclick="closeBranchModal()">Cancelar</button>
+    </div>
+</div>
+
+    <div id="custom-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-card">
+            <div id="modal-icon" class="modal-icon"></div>
+            <h3 id="modal-title"></h3>
+            <p id="modal-message"></p>
+            <button class="btn-primary" onclick="closeCustomModal()">ACEPTAR</button>
+        </div>
+    </div>
+
+    <div id="modal-lote" class="modal-overlay" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-icon">📦</div>
+            <h3>Confirmar Cantidad</h3>
+            <p id="lote-product-name" style="font-weight: bold; color: var(--navy);"></p>
+            
+            <div class="lote-input-group">
+                <label class="label-bold">Unidades por Lote:</label>
+                <input type="number" id="input-lote-qty" class="input-text-styled" value="1" min="1" style="text-align: center; font-size: 1.5rem;">
+                <p class="p-tiny">Ej: Si es una caja de 12, ingrese 12.</p>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn-secondary-outline" onclick="closeLoteModal()">CANCELAR</button>
+                <button class="btn-action-cyan" onclick="confirmarGuardadoLote()">CONFIRMAR</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
